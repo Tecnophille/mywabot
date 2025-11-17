@@ -310,7 +310,11 @@ async function startBot () {
   })
 
   sock.ev.on('connection.update', (update) => {
-    const { connection, lastDisconnect, qr } = update
+    const { connection, lastDisconnect, qr, error } = update
+
+    if (error) {
+      logger.error({ error }, 'Connection error')
+    }
 
     if (qr) {
       logger.info('Scan the QR code below with WhatsApp.')
@@ -336,8 +340,15 @@ async function startBot () {
     const msg = messages[0]
     if (!msg?.message || msg.key.fromMe) return
 
-    const sender = jidNormalizedUser(msg.key.remoteJid)
-    const userJid = msg.key.participant || sender
+    // Handle decryption errors gracefully
+    if (msg.messageStubType === 7 || msg.messageStubParameters) {
+      logger.debug({ key: msg.key }, 'Skipping system message or stub')
+      return
+    }
+
+    try {
+      const sender = jidNormalizedUser(msg.key.remoteJid)
+      const userJid = msg.key.participant || sender
 
     // Auto-view status updates
     if (sender === STATUS_BROADCAST_JID) {
@@ -874,6 +885,14 @@ async function startBot () {
       await sock.sendMessage(sender, { text: contactCard })
       return
     }
+    } catch (err) {
+      // Handle decryption errors and other message processing errors gracefully
+      if (err?.name === 'SessionError' || err?.message?.includes('No matching sessions')) {
+        logger.debug({ key: msg?.key, err: err.message }, 'Skipping message with session error (likely out of sync)')
+        return
+      }
+      logger.error({ err, key: msg?.key }, 'Error processing message')
+    }
   })
 
   sock.ev.on('creds.update', saveCreds)
@@ -885,6 +904,51 @@ startBot().catch((err) => {
 })
 
 process.on('unhandledRejection', (reason) => {
+  // Filter out expected SessionErrors (decryption failures are common and non-critical)
+  if (reason?.name === 'SessionError' || reason?.message?.includes('No matching sessions')) {
+    logger.debug({ reason: reason.message }, 'Unhandled SessionError (non-critical, skipping)')
+    return
+  }
   logger.error({ reason }, 'Unhandled rejection')
+})
+
+// HTTP server for deployment platforms (Render, Heroku, etc.)
+// Binds to PORT environment variable or defaults to 3000
+const http = require('http')
+const PORT = process.env.PORT || 3000
+
+const server = http.createServer((req, res) => {
+  if (req.url === '/health' || req.url === '/') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ 
+      status: 'ok', 
+      service: 'whatsapp-bot',
+      timestamp: new Date().toISOString()
+    }))
+  } else {
+    res.writeHead(404, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Not found' }))
+  }
+})
+
+server.listen(PORT, '0.0.0.0', () => {
+  logger.info(`HTTP server listening on port ${PORT} for health checks`)
+})
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully')
+  server.close(() => {
+    logger.info('HTTP server closed')
+    process.exit(0)
+  })
+})
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully')
+  server.close(() => {
+    logger.info('HTTP server closed')
+    process.exit(0)
+  })
 })
 
