@@ -1403,34 +1403,28 @@ async function startBot () {
       }
     }
 
-    // AI-powered intelligent replies (if enabled and no pattern match)
-    if (!isGroupJid(sender) && !isCommand && text && AI_ENABLED) {
-      // First try pattern-based auto-reply
-      const autoReply = detectAutoReply(text)
-      if (autoReply) {
-        await sock.sendMessage(sender, { text: autoReply.reply })
-        return
-      }
-
-      // If no pattern match, use AI to generate intelligent reply
-      const aiReply = await generateAIReply(text, {
-        statusContent: statusContext?.content,
-        hasMedia: !!statusContext?.media
-      })
-      
-      if (aiReply) {
-        await sock.sendMessage(sender, { text: aiReply })
-        logger.debug({ sender, original: text, reply: aiReply }, 'Sent AI-generated reply')
-        return
-      }
-    }
-
-    // Fallback to pattern-based auto-reply if AI is disabled or failed
+    // Auto-reply logic: Try pattern-based first, then AI if enabled
     if (!isGroupJid(sender) && !isCommand && text) {
+      // First, always try pattern-based auto-reply
       const autoReply = detectAutoReply(text)
       if (autoReply) {
         await sock.sendMessage(sender, { text: autoReply.reply })
+        logger.debug({ sender, text, type: autoReply.type }, 'Sent pattern-based auto-reply')
         return
+      }
+
+      // If no pattern match and AI is enabled, use AI to generate intelligent reply
+      if (AI_ENABLED) {
+        const aiReply = await generateAIReply(text, {
+          statusContent: statusContext?.content,
+          hasMedia: !!statusContext?.media
+        })
+        
+        if (aiReply) {
+          await sock.sendMessage(sender, { text: aiReply })
+          logger.debug({ sender, original: text, reply: aiReply }, 'Sent AI-generated reply')
+          return
+        }
       }
     }
 
