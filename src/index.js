@@ -17,6 +17,10 @@ require('dotenv').config()
 const AUTH_FOLDER = process.env.AUTH_FOLDER || path.join(__dirname, '..', 'auth_info')
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info'
 const STATUS_BROADCAST_JID = 'status@broadcast'
+const AI_ENABLED = process.env.AI_ENABLED === 'true'
+const AI_API_KEY = process.env.AI_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY
+const AI_MODEL = process.env.AI_MODEL || 'gemini-pro'
+const AI_PROVIDER = process.env.AI_PROVIDER || 'gemini' // 'gemini', 'openai', or 'anthropic'
 const BUSINESS_NAME = process.env.BUSINESS_NAME || 'Autobot Enterprises'
 const BUSINESS_HOURS = process.env.BUSINESS_HOURS || 'Mon-Fri · 9:00–17:00'
 const BUSINESS_LOCATION = process.env.BUSINESS_LOCATION || 'Online / Remote'
@@ -48,6 +52,207 @@ const shouldReconnect = (lastDisconnect) => {
 }
 
 const isGroupJid = (jid = '') => jid.endsWith('@g.us')
+
+// Status tracking - store posted status updates
+const statusStore = new Map() // key: statusId, value: { content, timestamp, media }
+
+// Track status updates when they're posted
+const trackStatusUpdate = (statusId, content, media = null) => {
+  statusStore.set(statusId, {
+    content,
+    media,
+    timestamp: Date.now()
+  })
+  // Keep only last 100 statuses
+  if (statusStore.size > 100) {
+    const firstKey = statusStore.keys().next().value
+    statusStore.delete(firstKey)
+  }
+  logger.debug({ statusId, hasMedia: !!media }, 'Tracked status update')
+}
+
+// Get status content by ID
+const getStatusContent = (statusId) => {
+  return statusStore.get(statusId)
+}
+
+// AI-powered reply generation
+const generateAIReply = async (incomingMessage, context = {}) => {
+  if (!AI_ENABLED || !AI_API_KEY) {
+    return null
+  }
+
+  try {
+    const systemPrompt = `You are a helpful WhatsApp assistant. Generate brief, natural, and friendly replies to messages. Keep responses concise (1-2 sentences max), conversational, and appropriate for WhatsApp. If the user is asking about a status update, acknowledge it naturally.`
+
+    const userPrompt = `Message: "${incomingMessage}"${context.statusContent ? `\n\nContext: This is a reply to a status update that said: "${context.statusContent}"` : ''}${context.previousMessages ? `\n\nPrevious conversation:\n${context.previousMessages}` : ''}\n\nGenerate a natural, brief reply:`
+
+    if (AI_PROVIDER === 'gemini' || !AI_PROVIDER) {
+      // Using Google Gemini API
+      const https = require('https')
+      const modelName = AI_MODEL || 'gemini-pro'
+      const data = JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `${systemPrompt}\n\n${userPrompt}`
+          }]
+        }],
+        generationConfig: {
+          maxOutputTokens: 150,
+          temperature: 0.7
+        }
+      })
+
+      return new Promise((resolve, reject) => {
+        const options = {
+          hostname: 'generativelanguage.googleapis.com',
+          path: `/v1beta/models/${modelName}:generateContent?key=${AI_API_KEY}`,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+
+        const req = https.request(options, (res) => {
+          let responseData = ''
+          res.on('data', (chunk) => {
+            responseData += chunk
+          })
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(responseData)
+              if (parsed.candidates && parsed.candidates[0]?.content?.parts?.[0]?.text) {
+                resolve(parsed.candidates[0].content.parts[0].text.trim())
+              } else {
+                logger.warn({ response: parsed }, 'Unexpected Gemini API response')
+                resolve(null)
+              }
+            } catch (err) {
+              logger.error({ err, responseData }, 'Failed to parse Gemini response')
+              resolve(null)
+            }
+          })
+        })
+
+        req.on('error', (err) => {
+          logger.error({ err }, 'Gemini API request failed')
+          resolve(null)
+        })
+
+        req.write(data)
+        req.end()
+      })
+    } else if (AI_PROVIDER === 'openai') {
+      // Using OpenAI API
+      const https = require('https')
+      const data = JSON.stringify({
+        model: AI_MODEL,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 150,
+        temperature: 0.7
+      })
+
+      return new Promise((resolve, reject) => {
+        const options = {
+          hostname: 'api.openai.com',
+          path: '/v1/chat/completions',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${AI_API_KEY}`
+          }
+        }
+
+        const req = https.request(options, (res) => {
+          let responseData = ''
+          res.on('data', (chunk) => {
+            responseData += chunk
+          })
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(responseData)
+              if (parsed.choices && parsed.choices[0]?.message?.content) {
+                resolve(parsed.choices[0].message.content.trim())
+              } else {
+                logger.warn({ response: parsed }, 'Unexpected AI API response')
+                resolve(null)
+              }
+            } catch (err) {
+              logger.error({ err, responseData }, 'Failed to parse AI response')
+              resolve(null)
+            }
+          })
+        })
+
+        req.on('error', (err) => {
+          logger.error({ err }, 'AI API request failed')
+          resolve(null)
+        })
+
+        req.write(data)
+        req.end()
+      })
+    } else if (AI_PROVIDER === 'anthropic') {
+      // Using Anthropic Claude API
+      const https = require('https')
+      const data = JSON.stringify({
+        model: AI_MODEL || 'claude-3-haiku-20240307',
+        max_tokens: 150,
+        messages: [
+          { role: 'user', content: `${systemPrompt}\n\n${userPrompt}` }
+        ]
+      })
+
+      return new Promise((resolve, reject) => {
+        const options = {
+          hostname: 'api.anthropic.com',
+          path: '/v1/messages',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': AI_API_KEY,
+            'anthropic-version': '2023-06-01'
+          }
+        }
+
+        const req = https.request(options, (res) => {
+          let responseData = ''
+          res.on('data', (chunk) => {
+            responseData += chunk
+          })
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(responseData)
+              if (parsed.content && parsed.content[0]?.text) {
+                resolve(parsed.content[0].text.trim())
+              } else {
+                logger.warn({ response: parsed }, 'Unexpected AI API response')
+                resolve(null)
+              }
+            } catch (err) {
+              logger.error({ err, responseData }, 'Failed to parse AI response')
+              resolve(null)
+            }
+          })
+        })
+
+        req.on('error', (err) => {
+          logger.error({ err }, 'AI API request failed')
+          resolve(null)
+        })
+
+        req.write(data)
+        req.end()
+      })
+    }
+  } catch (err) {
+    logger.error({ err }, 'Error generating AI reply')
+    return null
+  }
+}
 
 const markStatusAsViewed = async (sock, msg) => {
   if (!msg?.key?.id || !msg.key.participant) return
@@ -1105,6 +1310,29 @@ async function startBot () {
     }
   })
 
+  // Track status updates when posted
+  sock.ev.on('messages.upsert', async ({ messages, type }) => {
+    if (type !== 'notify') return
+    for (const msg of messages) {
+      // Check if this is a status update we posted
+      if (msg.key.fromMe && msg.key.remoteJid === STATUS_BROADCAST_JID) {
+        const statusText = getIncomingText(msg.message)
+        const statusId = msg.key.id
+        let media = null
+        
+        // Check for media in status
+        if (msg.message?.imageMessage) {
+          media = { type: 'image', url: msg.message.imageMessage.url }
+        } else if (msg.message?.videoMessage) {
+          media = { type: 'video', url: msg.message.videoMessage.url }
+        }
+        
+        trackStatusUpdate(statusId, statusText, media)
+        logger.info({ statusId, hasText: !!statusText, hasMedia: !!media }, 'Tracked new status update')
+      }
+    }
+  })
+
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     if (type !== 'notify') return
     const msg = messages[0]
@@ -1134,7 +1362,70 @@ async function startBot () {
 
     logger.info({ sender, text }, 'Incoming message')
 
-    // Auto-reply to various contexts in direct chats (not groups, not commands)
+    // Check if this is a reply to a status update
+    let statusContext = null
+    const contextInfo = msg.message?.extendedTextMessage?.contextInfo || 
+                       msg.message?.imageMessage?.contextInfo ||
+                       msg.message?.videoMessage?.contextInfo
+    if (contextInfo?.quotedMessage) {
+      // This might be a reply to a status
+      const quotedId = contextInfo.stanzaId
+      if (quotedId) {
+        const statusData = getStatusContent(quotedId)
+        if (statusData) {
+          statusContext = statusData
+          logger.info({ sender, statusId: quotedId }, 'Detected reply to status update')
+        }
+      }
+    }
+
+    // Check if user is asking to see/share a status
+    if (!isGroupJid(sender) && !isCommand && text) {
+      const shareStatusPattern = /\b(send|share|show|forward|send me|share with me|can i see|i want to see|show me)\s+(the\s+)?(status|update|post)\b/i
+      if (shareStatusPattern.test(text) && statusContext) {
+        // Share the status they're asking about
+        try {
+          if (statusContext.media) {
+            // If status has media, we can't easily forward it, so send text
+            const statusText = statusContext.content || 'Status update'
+            await sock.sendMessage(sender, { 
+              text: `Here's the status you asked about:\n\n"${statusText}"` 
+            })
+          } else {
+            await sock.sendMessage(sender, { 
+              text: `Here's the status you asked about:\n\n"${statusContext.content}"` 
+            })
+          }
+          return
+        } catch (err) {
+          logger.error({ err }, 'Failed to share status')
+        }
+      }
+    }
+
+    // AI-powered intelligent replies (if enabled and no pattern match)
+    if (!isGroupJid(sender) && !isCommand && text && AI_ENABLED) {
+      // First try pattern-based auto-reply
+      const autoReply = detectAutoReply(text)
+      if (autoReply) {
+        await sock.sendMessage(sender, { text: autoReply.reply })
+        return
+      }
+
+      // If no pattern match, use AI to generate intelligent reply
+      const aiReply = await generateAIReply(text, {
+        statusContent: statusContext?.content,
+        hasMedia: !!statusContext?.media
+      })
+      
+      if (aiReply) {
+        await sock.sendMessage(sender, { text: aiReply })
+        logger.debug({ sender, original: text, reply: aiReply }, 'Sent AI-generated reply')
+        return
+      }
+    }
+
+    // Fallback to pattern-based auto-reply if AI is disabled or failed
     if (!isGroupJid(sender) && !isCommand && text) {
       const autoReply = detectAutoReply(text)
       if (autoReply) {
@@ -1216,9 +1507,16 @@ async function startBot () {
 • \`.invoice <client> | <service> | <amount>\` - Draft invoice text
 • \`.faq\` - Common client answers
 • \`.contact\` - Share contact card
+• \`.status\` - Share latest status update
+
+*AI-Powered Features:*
+${AI_ENABLED ? `• AI-powered intelligent replies (analyzes messages and generates contextual responses) 🤖
+• Detects and responds to replies on status updates 📱
+• Automatically shares status when requested 🔄` : '• AI features disabled (set AI_ENABLED=true and AI_API_KEY to enable) ⚙️'}
 
 *Automatic Features:*
 • Auto-views all status updates 👀
+• Tracks your posted status updates for sharing 📝
 • Auto-replies in direct chats:
   - Greetings (Hi, Hello, Howfar, Good morning, etc.) 👋
   - What's up (Sup, Wassup, What's going on, etc.) 💬
@@ -1687,6 +1985,30 @@ async function startBot () {
         `Location: ${BUSINESS_LOCATION}`
       ].join('\n')
       await sock.sendMessage(sender, { text: contactCard })
+      return
+    }
+
+    // .status - Share latest status update
+    if (command === '.status') {
+      if (statusStore.size === 0) {
+        await sock.sendMessage(sender, { text: 'No status updates tracked yet. Post a status first!' })
+        return
+      }
+
+      // Get the most recent status
+      const statuses = Array.from(statusStore.entries())
+      const latestStatus = statuses[statuses.length - 1]
+      const [statusId, statusData] = latestStatus
+
+      if (statusData.content || statusData.media) {
+        const statusText = statusData.content || 'Status update'
+        const timestamp = new Date(statusData.timestamp).toLocaleString()
+        await sock.sendMessage(sender, {
+          text: `📱 *Latest Status Update*\n\n"${statusText}"\n\n_Posted: ${timestamp}_`
+        })
+      } else {
+        await sock.sendMessage(sender, { text: 'Latest status update has no content.' })
+      }
       return
     }
     } catch (err) {
