@@ -1360,7 +1360,13 @@ async function startBot () {
     const isAwayControlCommand = command === '.away' || command === '.back'
     const isCommand = command.startsWith('.') || command === 'ping'
 
-    logger.info({ sender, text }, 'Incoming message')
+    logger.info({ 
+      sender, 
+      text, 
+      isGroup: isGroupJid(sender),
+      isCommand,
+      textLength: text.length 
+    }, 'Incoming message')
 
     // Check if this is a reply to a status update
     let statusContext = null
@@ -1379,14 +1385,14 @@ async function startBot () {
       }
     }
 
-    // Check if user is asking to see/share a status
+    // Auto-reply logic: Pattern-based auto-replies (works in direct chats only)
     if (!isGroupJid(sender) && !isCommand && text) {
+      // Check if user is asking to see/share a status
       const shareStatusPattern = /\b(send|share|show|forward|send me|share with me|can i see|i want to see|show me)\s+(the\s+)?(status|update|post)\b/i
       if (shareStatusPattern.test(text) && statusContext) {
         // Share the status they're asking about
         try {
           if (statusContext.media) {
-            // If status has media, we can't easily forward it, so send text
             const statusText = statusContext.content || 'Status update'
             await sock.sendMessage(sender, { 
               text: `Here's the status you asked about:\n\n"${statusText}"` 
@@ -1401,36 +1407,39 @@ async function startBot () {
           logger.error({ err }, 'Failed to share status')
         }
       }
-    }
 
-    // Auto-reply logic: Try pattern-based first, then AI if enabled
-    if (!isGroupJid(sender) && !isCommand && text) {
-      // First, always try pattern-based auto-reply
+      // Try pattern-based auto-reply first
       const autoReply = detectAutoReply(text)
       if (autoReply) {
         await sock.sendMessage(sender, { text: autoReply.reply })
-        logger.debug({ sender, text, type: autoReply.type }, 'Sent pattern-based auto-reply')
+        logger.info({ sender, text, type: autoReply.type }, 'Sent pattern-based auto-reply')
         return
       }
 
-      // If no pattern match and AI is enabled, use AI to generate intelligent reply
-      if (AI_ENABLED) {
-        const aiReply = await generateAIReply(text, {
-          statusContent: statusContext?.content,
-          hasMedia: !!statusContext?.media
-        })
-        
-        if (aiReply) {
-          await sock.sendMessage(sender, { text: aiReply })
-          logger.debug({ sender, original: text, reply: aiReply }, 'Sent AI-generated reply')
-          return
+      // If AI is enabled and no pattern match, try AI
+      if (AI_ENABLED && AI_API_KEY) {
+        try {
+          const aiReply = await generateAIReply(text, {
+            statusContent: statusContext?.content,
+            hasMedia: !!statusContext?.media
+          })
+          
+          if (aiReply) {
+            await sock.sendMessage(sender, { text: aiReply })
+            logger.info({ sender, original: text, reply: aiReply }, 'Sent AI-generated reply')
+            return
+          }
+        } catch (err) {
+          logger.error({ err }, 'AI reply generation failed, continuing...')
         }
       }
     }
 
-    if (!isGroupJid(sender) && !isAwayControlCommand && shouldSendAwayReply(sender)) {
+    // Away mode (only if no auto-reply was sent)
+    if (!isGroupJid(sender) && !isAwayControlCommand && !isCommand && shouldSendAwayReply(sender)) {
       await sock.sendMessage(sender, { text: awayState.message })
       recordAwayReply(sender)
+      return
     }
 
     // Handle image to sticker conversion (reply to image with .sticker)
