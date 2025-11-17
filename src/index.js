@@ -184,7 +184,508 @@ const EVENING_REPLIES = [
   'Evening! Hope your day went well! 🌙'
 ]
 
-const detectGreeting = (text) => {
+// Thank you responses
+const THANK_YOU_PATTERNS = [
+  /^(thanks|thank you|thank u|thx|ty|tysm|thank you so much|thanks a lot|thanks much|appreciate it|appreciated)$/i,
+  /^(gracias|merci|danke|arigato)$/i
+]
+
+const THANK_YOU_REPLIES = [
+  'You\'re welcome! 😊',
+  'Happy to help!',
+  'Anytime!',
+  'No problem!',
+  'You\'re very welcome!',
+  'Glad I could help! 😊',
+  'My pleasure!',
+  'Of course! Anytime!'
+]
+
+// Goodbye responses
+const GOODBYE_PATTERNS = [
+  /^(bye|goodbye|see you|see ya|cya|later|take care|ttyl|talk to you later|gotta go|got to go|i have to go|catch you later)$/i,
+  /^(good night|gn|night|sleep well|sweet dreams)$/i
+]
+
+const GOODBYE_REPLIES = [
+  'Bye! Take care! 👋',
+  'See you later!',
+  'Talk soon! 👋',
+  'Have a great day!',
+  'Catch you later!',
+  'Take care! 👋'
+]
+
+const GOOD_NIGHT_REPLIES = [
+  'Good night! Sleep well! 🌙',
+  'Night! Sweet dreams! 🌙',
+  'Good night! Rest well!',
+  'Sleep tight! 🌙',
+  'Good night! See you tomorrow!'
+]
+
+// Common question responses
+const QUESTION_PATTERNS = [
+  /^(what|when|where|why|how|who|which|can you|could you|do you|are you|is it|will you)$/i
+]
+
+const QUESTION_REPLIES = [
+  'That\'s a great question! Let me know if you need help with anything specific.',
+  'I\'m here to help! What would you like to know?',
+  'Feel free to ask me anything!',
+  'What can I help you with?',
+  'I\'m listening! What do you need?'
+]
+
+// Acknowledgment responses
+const ACKNOWLEDGMENT_PATTERNS = [
+  /^(ok|okay|okey|sure|alright|alrighty|cool|nice|great|awesome|sounds good|got it|understood|roger|copy that)$/i,
+  /^(yeah|yes|yep|yup|yea|indeed|absolutely|definitely|of course)$/i
+]
+
+const ACKNOWLEDGMENT_REPLIES = [
+  'Great! 👍',
+  'Awesome! 😊',
+  'Sounds good!',
+  'Perfect!',
+  'Cool! Let me know if you need anything else.',
+  'Got it! 👍',
+  'Nice! 😊'
+]
+
+// Business/Service inquiry patterns
+const BUSINESS_INQUIRY_PATTERNS = [
+  /\b(price|pricing|cost|how much|rate|rates|quote|quotation|invoice|bill|payment|pay|buy|purchase|order|service|services|website|bot|branding|ads|package|packages)\b/i,
+  /\b(what do you do|what services|what can you|what do you offer|what are your|do you do|can you help|can you make|do you provide)\b/i,
+  /\b(available|availability|when can|how long|timeline|delivery|turnaround|start|begin|project)\b/i
+]
+
+const BUSINESS_INQUIRY_REPLIES = [
+  'Great question! Type `.services` to see what I offer, or `.price <service>` for specific pricing.',
+  'I\'d be happy to help! Check out `.services` for my offerings, or `.hours` for contact info.',
+  'Let me help! Use `.catalog` to see services, or `.faq` for common questions.',
+  'For service details, try `.services`. For pricing, use `.price <service>`.',
+  'Check out `.services` to see what I offer! You can also use `.contact` for more info.'
+]
+
+// Compliment responses
+const COMPLIMENT_PATTERNS = [
+  /\b(good job|well done|nice work|great work|amazing|fantastic|excellent|brilliant|perfect|wonderful|lovely|beautiful|awesome job)\b/i,
+  /\b(you're|you are|ur) (great|awesome|amazing|fantastic|the best|wonderful|brilliant|genius)\b/i
+]
+
+const COMPLIMENT_REPLIES = [
+  'Thank you so much! 😊',
+  'That means a lot! Thank you! 🙏',
+  'You\'re too kind! 😊',
+  'Thanks! I appreciate that!',
+  'Aw, thank you! 😊',
+  'That\'s very sweet of you! Thank you!'
+]
+
+// Apology responses
+const APOLOGY_PATTERNS = [
+  /^(sorry|apologies|my bad|my mistake|oops|excuse me|pardon|forgive me)$/i
+]
+
+const APOLOGY_REPLIES = [
+  'No worries at all! 😊',
+  'It\'s all good!',
+  'No problem!',
+  'Don\'t worry about it!',
+  'That\'s okay!',
+  'No need to apologize! 😊'
+]
+
+// Help request patterns
+const HELP_PATTERNS = [
+  /^(help|need help|can you help|please help|i need|assist|support|stuck|confused|don't know|dunno|how do i|what should i)\b/i
+]
+
+const HELP_REPLIES = [
+  'I\'m here to help! Type `.help` to see all available commands.',
+  'Sure! Type `.help` to see what I can do for you.',
+  'Happy to help! Use `.help` to see all my commands.',
+  'Let me help! Check out `.help` for available commands.'
+]
+
+// Congratulations/Celebrations
+const CONGRATULATIONS_PATTERNS = [
+  /\b(congratulations|congrats|well done|celebrate|celebration|happy for you|proud of you|amazing achievement|great job|excellent work)\b/i
+]
+
+const CONGRATULATIONS_REPLIES = [
+  'Thank you! 🎉',
+  'Thanks so much! 😊',
+  'I appreciate that! 🎊',
+  'That means a lot! Thank you! 🙏'
+]
+
+// Presence/Availability checks
+const PRESENCE_PATTERNS = [
+  /^(are you there|you there|are you online|you online|are you here|you here|are you around|you around|hello\?|hi\?|hey\?)$/i,
+  /^(ping|pong|test|testing)$/i
+]
+
+const PRESENCE_REPLIES = [
+  'Yes, I\'m here! How can I help? 😊',
+  'I\'m online! What\'s up?',
+  'Here! What can I do for you?',
+  'Yes, I\'m here and ready to help!',
+  'I\'m around! Need anything?'
+]
+
+// Excitement/Enthusiasm
+const EXCITEMENT_PATTERNS = [
+  /\b(woohoo|yay|yippee|awesome|amazing|fantastic|incredible|wow|hooray|excited|can't wait|looking forward)\b/i,
+  /^(yes!|yeah!|yep!|absolutely!|definitely!)$/i
+]
+
+const EXCITEMENT_REPLIES = [
+  'That\'s awesome! 🎉',
+  'Great to hear! 😊',
+  'Exciting! 🚀',
+  'Love the enthusiasm! 💪',
+  'That\'s fantastic! 🌟'
+]
+
+// Confusion/Clarification
+const CONFUSION_PATTERNS = [
+  /\b(what\?|huh\?|what do you mean|i don't understand|confused|unclear|not sure|what does that mean|explain|clarify)\b/i,
+  /^(hmm|hm|huh|eh\?)$/i
+]
+
+const CONFUSION_REPLIES = [
+  'Let me clarify! What would you like to know?',
+  'I\'m here to help! What can I explain?',
+  'Feel free to ask me anything!',
+  'What would you like me to clarify?',
+  'I can help explain! What do you need?'
+]
+
+// Agreement/Disagreement
+const AGREEMENT_PATTERNS = [
+  /\b(exactly|precisely|absolutely|totally|completely|agreed|i agree|same here|me too|that's right|correct|true|indeed)\b/i
+]
+
+const AGREEMENT_REPLIES = [
+  'Exactly! 👍',
+  'I agree! 😊',
+  'Absolutely! 💯',
+  'That\'s right!',
+  'Totally! 👍'
+]
+
+const DISAGREEMENT_PATTERNS = [
+  /\b(no way|nope|nah|disagree|not really|i don't think so|that's not right|incorrect|wrong)\b/i
+]
+
+const DISAGREEMENT_REPLIES = [
+  'I understand! Thanks for sharing your perspective.',
+  'Got it! Everyone has different views.',
+  'I hear you!',
+  'Thanks for letting me know!',
+  'I appreciate your input!'
+]
+
+// Surprise/Disbelief
+const SURPRISE_PATTERNS = [
+  /\b(what|really|seriously|no way|are you serious|you're kidding|is that true|wow|omg|oh my|unbelievable|incredible)\b/i,
+  /^(really\?|seriously\?|no way\?|wow|omg)$/i
+]
+
+const SURPRISE_REPLIES = [
+  'Yes, really! 😊',
+  'I know, right?',
+  'Pretty cool, huh?',
+  'Surprising but true!',
+  'Believe it! 😄'
+]
+
+// Encouragement/Motivation
+const ENCOURAGEMENT_PATTERNS = [
+  /\b(you can do it|you got this|keep going|don't give up|stay strong|hang in there|you're doing great|keep it up|motivate|encourage)\b/i
+]
+
+const ENCOURAGEMENT_REPLIES = [
+  'You\'ve got this! 💪',
+  'Keep going! You\'re doing great!',
+  'Stay strong! 💪',
+  'You can do it! 🌟',
+  'Keep pushing forward! You\'ve got this!'
+]
+
+// Time/Availability inquiries
+const TIME_INQUIRY_PATTERNS = [
+  /\b(what time|what's the time|time now|current time|when|what day|what date|today|tomorrow|when are you|when can you|available|free|busy)\b/i
+]
+
+const TIME_INQUIRY_REPLIES = [
+  'Type `.time` to get the current date and time!',
+  'I\'m usually available! Use `.hours` to see my business hours.',
+  'Check `.time` for the current time, or `.hours` for availability.',
+  'I\'m here to help! Use `.time` for time info.'
+]
+
+// Name/Identity inquiries
+const IDENTITY_PATTERNS = [
+  /\b(who are you|what's your name|your name|who is this|introduce yourself|tell me about yourself|what are you)\b/i
+]
+
+const IDENTITY_REPLIES = [
+  'I\'m an automated WhatsApp bot! Type `.help` to see what I can do.',
+  'I\'m a helpful bot! Check out `.help` for all my features.',
+  'I\'m your friendly WhatsApp assistant! Use `.intro` to learn more.',
+  'I\'m here to help! Type `.help` to see everything I can do.'
+]
+
+// Contact/Communication inquiries
+const CONTACT_INQUIRY_PATTERNS = [
+  /\b(contact|phone|email|address|location|where are you|how to reach|reach you|get in touch|call you|text you)\b/i
+]
+
+const CONTACT_INQUIRY_REPLIES = [
+  'Use `.contact` to see my contact information!',
+  'Type `.hours` for contact details and business info.',
+  'Check `.contact` for phone, email, and location!',
+  'Use `.contact` or `.hours` to get all my contact information.'
+]
+
+// Frustration/Annoyance
+const FRUSTRATION_PATTERNS = [
+  /\b(ugh|argh|frustrated|annoyed|irritated|this is annoying|so frustrating|why|not working|broken|error)\b/i
+]
+
+const FRUSTRATION_REPLIES = [
+  'I\'m sorry you\'re frustrated! How can I help?',
+  'Let me help you with that! What\'s the issue?',
+  'I understand the frustration. What can I do to help?',
+  'Sorry about that! Let\'s figure this out together.'
+]
+
+// Relief/Satisfaction
+const RELIEF_PATTERNS = [
+  /\b(phew|finally|at last|thank goodness|relief|relieved|glad|happy|satisfied|great|perfect|done|finished)\b/i
+]
+
+const RELIEF_REPLIES = [
+  'Glad to hear it! 😊',
+  'That\'s great! Happy for you!',
+  'Awesome! 🎉',
+  'Wonderful! 😊',
+  'So glad everything worked out!'
+]
+
+// Permission requests
+const PERMISSION_PATTERNS = [
+  /\b(can i|may i|is it ok|is it okay|is that ok|is that okay|allowed|permission|can you let me|do you mind)\b/i
+]
+
+const PERMISSION_REPLIES = [
+  'Sure, go ahead!',
+  'Of course!',
+  'Absolutely!',
+  'Yes, that\'s fine!',
+  'Go for it! 👍'
+]
+
+// What's up variations
+const WHATSUP_PATTERNS = [
+  /^(what's up|whats up|wassup|wadup|sup|what up|what's going on|whats going on|what's happening|whats happening)$/i
+]
+
+const WHATSUP_REPLIES = [
+  'Not much! How about you?',
+  'Just here helping out! What\'s up with you?',
+  'All good! What\'s going on with you?',
+  'Nothing much! How can I help?',
+  'Just hanging around! What\'s new?'
+]
+
+// Casual check-ins
+const CASUAL_CHECKIN_PATTERNS = [
+  /\b(how's it going|hows it going|how's everything|hows everything|how's life|hows life|how's your day|hows your day|how's your week|hows your week|what's new|whats new|what's good|whats good)\b/i,
+  /\b(how you been|how have you been|long time no talk|ltnt|how's things|hows things)\b/i
+]
+
+const CASUAL_CHECKIN_REPLIES = [
+  'All good here! How about you?',
+  'Doing well! What about you?',
+  'Pretty good! How are things with you?',
+  'Can\'t complain! How\'s everything?',
+  'All good! How\'s your day going?',
+  'Doing great! What\'s new with you?'
+]
+
+// Casual reactions (lol, haha, etc.)
+const CASUAL_REACTION_PATTERNS = [
+  /^(lol|lmao|rofl|haha|hahaha|hehe|hehehe|pfft|hah|lmfao)$/i,
+  /\b(lol|lmao|rofl|haha|hahaha|hehe|lmfao)\b/i
+]
+
+const CASUAL_REACTION_REPLIES = [
+  'Haha! 😄',
+  'Lol! 😂',
+  'Glad you find it funny! 😊',
+  'Haha, nice! 😄',
+  'Lol, that\'s great! 😂'
+]
+
+// Casual slang
+const CASUAL_SLANG_PATTERNS = [
+  /\b(bet|fr|for real|ngl|not gonna lie|tbh|to be honest|imo|in my opinion|lowkey|highkey|no cap|caps|deadass|frfr|on god|ong)\b/i,
+  /^(bet|fr|ngl|tbh|imo)$/i
+]
+
+const CASUAL_SLANG_REPLIES = [
+  'For real! 😊',
+  'I hear you!',
+  'Totally! 👍',
+  'Right? 😄',
+  'I get it!',
+  'Same! 😊'
+]
+
+// Casual status/activity updates
+const CASUAL_ACTIVITY_PATTERNS = [
+  /\b(what are you doing|what you doing|whatcha doing|what are you up to|what you up to|whatcha up to|what are you working on|what you working on)\b/i,
+  /\b(just|about to|gonna|going to|planning to|thinking about)\b/i
+]
+
+const CASUAL_ACTIVITY_REPLIES = [
+  'Just here helping out! What about you?',
+  'Not much, just hanging around! What are you up to?',
+  'Just doing my thing! How about you?',
+  'Nothing special! What\'s going on with you?',
+  'Just here! What are you doing?'
+]
+
+// Casual expressions (oh, ah, hmm, etc.)
+const CASUAL_EXPRESSION_PATTERNS = [
+  /^(oh|ah|hmm|hm|huh|eh|meh|ehh|ohh|ahh)$/i,
+  /\b(oh ok|oh okay|ah ok|ah okay|oh i see|ah i see|gotcha|i see|makes sense)\b/i
+]
+
+const CASUAL_EXPRESSION_REPLIES = [
+  'Yeah! 😊',
+  'Right?',
+  'I know!',
+  'Got it! 👍',
+  'Makes sense!',
+  'I see! 😊'
+]
+
+// Casual compliments (nice, sweet, cool, etc.)
+const CASUAL_COMPLIMENT_PATTERNS = [
+  /\b(nice|sweet|cool|dope|fire|lit|sick|rad|awesome|amazing|great|good|solid|tight|clean|fresh|smooth)\b/i,
+  /^(nice|sweet|cool|dope|fire|lit|sick|rad)$/i
+]
+
+const CASUAL_COMPLIMENT_REPLIES = [
+  'Thanks! 😊',
+  'Appreciate it!',
+  'You too! 👍',
+  'Right back at you! 😊',
+  'Thanks! That means a lot!'
+]
+
+// Casual small talk
+const CASUAL_SMALLTALK_PATTERNS = [
+  /\b(nice weather|beautiful day|lovely day|great day|hot today|cold today|raining|sunny|cloudy)\b/i,
+  /\b(having a good day|having a great day|hope you're having|hope you having|hope your day|hope ur day)\b/i
+]
+
+const CASUAL_SMALLTALK_REPLIES = [
+  'Yeah, it\'s nice! Hope you\'re having a good day too!',
+  'For sure! Hope your day is going well!',
+  'Absolutely! Have a great one! 😊',
+  'Yes! Hope you\'re enjoying it!',
+  'Definitely! Hope your day is awesome!'
+]
+
+// Casual interest/engagement
+const CASUAL_INTEREST_PATTERNS = [
+  /\b(tell me more|go on|continue|keep going|and then|what else|what happened next|what's next|whats next)\b/i,
+  /\b(interesting|intriguing|fascinating|cool story|cool|crazy|wild|insane)\b/i
+]
+
+const CASUAL_INTEREST_REPLIES = [
+  'I\'d love to hear more!',
+  'That\'s interesting! Tell me more!',
+  'Go on! I\'m listening! 😊',
+  'Keep going! This is interesting!',
+  'Wow, that\'s cool! What happened next?'
+]
+
+// Casual boredom
+const CASUAL_BOREDOM_PATTERNS = [
+  /\b(bored|nothing to do|killing time|so bored|really bored|boring|nothing going on|nothing happening)\b/i
+]
+
+const CASUAL_BOREDOM_REPLIES = [
+  'I feel you! Want to chat or do something?',
+  'I know that feeling! What would you like to do?',
+  'Boredom is the worst! Want to talk?',
+  'I\'m here if you want to chat! 😊',
+  'Let\'s find something to do! What sounds fun?'
+]
+
+// Casual busy
+const CASUAL_BUSY_PATTERNS = [
+  /\b(busy|swamped|hectic|crazy busy|super busy|really busy|so busy|overwhelmed|drowning in work)\b/i
+]
+
+const CASUAL_BUSY_REPLIES = [
+  'I understand! Hope things calm down soon!',
+  'Hang in there! You\'ve got this! 💪',
+  'I know how that feels! Take care of yourself!',
+  'That sounds tough! Hope you get some rest soon!',
+  'Stay strong! This too shall pass! 💪'
+]
+
+// Casual agreement variations
+const CASUAL_AGREEMENT_PATTERNS = [
+  /\b(yep|yup|yeah|yea|sure thing|for sure|definitely|absolutely|totally|same|same here|me too|me neither|ditto)\b/i,
+  /^(yep|yup|yeah|yea|sure|for sure|def|definitely|absolutely|totally)$/i
+]
+
+const CASUAL_AGREEMENT_REPLIES = [
+  'Right? 😊',
+  'I know, right?',
+  'Totally! 👍',
+  'Same here!',
+  'For sure!',
+  'Absolutely! 💯'
+]
+
+// Casual "how are you" variations
+const CASUAL_HOWAREYOU_PATTERNS = [
+  /\b(how are you doing|how you doing|how ya doing|how are things|how things|how's everything going|hows everything going)\b/i
+]
+
+const CASUAL_HOWAREYOU_REPLIES = [
+  'I\'m doing great! How about you?',
+  'All good here! How are you?',
+  'Pretty good! What about you?',
+  'Doing well! How\'s everything?',
+  'Can\'t complain! How are you doing?'
+]
+
+// Casual "what are you doing" variations
+const CASUAL_WHATCHA_PATTERNS = [
+  /\b(whatcha|what are you|what you|what're you|whatcha doing|whatcha up to|what are you doing|what you doing)\b/i
+]
+
+const CASUAL_WHATCHA_REPLIES = [
+  'Not much! What about you?',
+  'Just here! What are you up to?',
+  'Nothing special! What\'s going on?',
+  'Just hanging out! How about you?',
+  'Just doing my thing! What are you doing?'
+]
+
+// Comprehensive auto-reply detection function
+const detectAutoReply = (text) => {
   const normalized = text.trim().toLowerCase()
   if (!normalized) return null
 
@@ -208,7 +709,276 @@ const detectGreeting = (text) => {
     return { type: 'evening', reply: EVENING_REPLIES[Math.floor(Math.random() * EVENING_REPLIES.length)] }
   }
 
-  // Check other greeting patterns
+  // Check for good night
+  if (/^(good night|gn|night|sleep well|sweet dreams)$/i.test(normalized)) {
+    return { type: 'goodnight', reply: GOOD_NIGHT_REPLIES[Math.floor(Math.random() * GOOD_NIGHT_REPLIES.length)] }
+  }
+
+  // Check for "what's up" variations
+  for (const pattern of WHATSUP_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'whatsup', reply: WHATSUP_REPLIES[Math.floor(Math.random() * WHATSUP_REPLIES.length)] }
+    }
+  }
+
+  // Check for casual check-ins
+  for (const pattern of CASUAL_CHECKIN_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'casual_checkin', reply: CASUAL_CHECKIN_REPLIES[Math.floor(Math.random() * CASUAL_CHECKIN_REPLIES.length)] }
+    }
+  }
+
+  // Check for casual "how are you" variations
+  for (const pattern of CASUAL_HOWAREYOU_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'casual_howareyou', reply: CASUAL_HOWAREYOU_REPLIES[Math.floor(Math.random() * CASUAL_HOWAREYOU_REPLIES.length)] }
+    }
+  }
+
+  // Check for casual "whatcha" variations
+  for (const pattern of CASUAL_WHATCHA_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'casual_whatcha', reply: CASUAL_WHATCHA_REPLIES[Math.floor(Math.random() * CASUAL_WHATCHA_REPLIES.length)] }
+    }
+  }
+
+  // Check for casual activity updates
+  for (const pattern of CASUAL_ACTIVITY_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'casual_activity', reply: CASUAL_ACTIVITY_REPLIES[Math.floor(Math.random() * CASUAL_ACTIVITY_REPLIES.length)] }
+    }
+  }
+
+  // Check for presence/availability
+  for (const pattern of PRESENCE_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'presence', reply: PRESENCE_REPLIES[Math.floor(Math.random() * PRESENCE_REPLIES.length)] }
+    }
+  }
+
+  // Check for thank you
+  for (const pattern of THANK_YOU_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'thankyou', reply: THANK_YOU_REPLIES[Math.floor(Math.random() * THANK_YOU_REPLIES.length)] }
+    }
+  }
+
+  // Check for goodbye (but not good night, already handled)
+  if (!/^(good night|gn|night|sleep well|sweet dreams)$/i.test(normalized)) {
+    for (const pattern of GOODBYE_PATTERNS) {
+      if (pattern.test(normalized)) {
+        return { type: 'goodbye', reply: GOODBYE_REPLIES[Math.floor(Math.random() * GOODBYE_REPLIES.length)] }
+      }
+    }
+  }
+
+  // Check for help requests
+  for (const pattern of HELP_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'help', reply: HELP_REPLIES[Math.floor(Math.random() * HELP_REPLIES.length)] }
+    }
+  }
+
+  // Check for time/availability inquiries
+  for (const pattern of TIME_INQUIRY_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'time', reply: TIME_INQUIRY_REPLIES[Math.floor(Math.random() * TIME_INQUIRY_REPLIES.length)] }
+    }
+  }
+
+  // Check for contact/communication inquiries
+  for (const pattern of CONTACT_INQUIRY_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'contact', reply: CONTACT_INQUIRY_REPLIES[Math.floor(Math.random() * CONTACT_INQUIRY_REPLIES.length)] }
+    }
+  }
+
+  // Check for identity/name inquiries
+  for (const pattern of IDENTITY_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'identity', reply: IDENTITY_REPLIES[Math.floor(Math.random() * IDENTITY_REPLIES.length)] }
+    }
+  }
+
+  // Check for business/service inquiries
+  for (const pattern of BUSINESS_INQUIRY_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'business', reply: BUSINESS_INQUIRY_REPLIES[Math.floor(Math.random() * BUSINESS_INQUIRY_REPLIES.length)] }
+    }
+  }
+
+  // Check for compliments
+  for (const pattern of COMPLIMENT_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'compliment', reply: COMPLIMENT_REPLIES[Math.floor(Math.random() * COMPLIMENT_REPLIES.length)] }
+    }
+  }
+
+  // Check for apologies
+  for (const pattern of APOLOGY_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'apology', reply: APOLOGY_REPLIES[Math.floor(Math.random() * APOLOGY_REPLIES.length)] }
+    }
+  }
+
+  // Check for congratulations
+  for (const pattern of CONGRATULATIONS_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'congratulations', reply: CONGRATULATIONS_REPLIES[Math.floor(Math.random() * CONGRATULATIONS_REPLIES.length)] }
+    }
+  }
+
+  // Check for excitement/enthusiasm
+  for (const pattern of EXCITEMENT_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'excitement', reply: EXCITEMENT_REPLIES[Math.floor(Math.random() * EXCITEMENT_REPLIES.length)] }
+    }
+  }
+
+  // Check for confusion/clarification
+  for (const pattern of CONFUSION_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'confusion', reply: CONFUSION_REPLIES[Math.floor(Math.random() * CONFUSION_REPLIES.length)] }
+    }
+  }
+
+  // Check for agreement
+  for (const pattern of AGREEMENT_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'agreement', reply: AGREEMENT_REPLIES[Math.floor(Math.random() * AGREEMENT_REPLIES.length)] }
+    }
+  }
+
+  // Check for disagreement
+  for (const pattern of DISAGREEMENT_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'disagreement', reply: DISAGREEMENT_REPLIES[Math.floor(Math.random() * DISAGREEMENT_REPLIES.length)] }
+    }
+  }
+
+  // Check for surprise/disbelief
+  for (const pattern of SURPRISE_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'surprise', reply: SURPRISE_REPLIES[Math.floor(Math.random() * SURPRISE_REPLIES.length)] }
+    }
+  }
+
+  // Check for encouragement
+  for (const pattern of ENCOURAGEMENT_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'encouragement', reply: ENCOURAGEMENT_REPLIES[Math.floor(Math.random() * ENCOURAGEMENT_REPLIES.length)] }
+    }
+  }
+
+  // Check for frustration
+  for (const pattern of FRUSTRATION_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'frustration', reply: FRUSTRATION_REPLIES[Math.floor(Math.random() * FRUSTRATION_REPLIES.length)] }
+    }
+  }
+
+  // Check for relief/satisfaction
+  for (const pattern of RELIEF_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'relief', reply: RELIEF_REPLIES[Math.floor(Math.random() * RELIEF_REPLIES.length)] }
+    }
+  }
+
+  // Check for permission requests
+  for (const pattern of PERMISSION_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'permission', reply: PERMISSION_REPLIES[Math.floor(Math.random() * PERMISSION_REPLIES.length)] }
+    }
+  }
+
+  // Check for questions (only if message starts with question word and is short)
+  if (normalized.length < 50) {
+    for (const pattern of QUESTION_PATTERNS) {
+      if (pattern.test(normalized)) {
+        return { type: 'question', reply: QUESTION_REPLIES[Math.floor(Math.random() * QUESTION_REPLIES.length)] }
+      }
+    }
+  }
+
+  // Check for casual reactions (lol, haha, etc.)
+  if (normalized.length < 20) {
+    for (const pattern of CASUAL_REACTION_PATTERNS) {
+      if (pattern.test(normalized)) {
+        return { type: 'casual_reaction', reply: CASUAL_REACTION_REPLIES[Math.floor(Math.random() * CASUAL_REACTION_REPLIES.length)] }
+      }
+    }
+  }
+
+  // Check for casual slang
+  for (const pattern of CASUAL_SLANG_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'casual_slang', reply: CASUAL_SLANG_REPLIES[Math.floor(Math.random() * CASUAL_SLANG_REPLIES.length)] }
+    }
+  }
+
+  // Check for casual expressions
+  if (normalized.length < 15) {
+    for (const pattern of CASUAL_EXPRESSION_PATTERNS) {
+      if (pattern.test(normalized)) {
+        return { type: 'casual_expression', reply: CASUAL_EXPRESSION_REPLIES[Math.floor(Math.random() * CASUAL_EXPRESSION_REPLIES.length)] }
+      }
+    }
+  }
+
+  // Check for casual compliments
+  if (normalized.length < 30) {
+    for (const pattern of CASUAL_COMPLIMENT_PATTERNS) {
+      if (pattern.test(normalized)) {
+        return { type: 'casual_compliment', reply: CASUAL_COMPLIMENT_REPLIES[Math.floor(Math.random() * CASUAL_COMPLIMENT_REPLIES.length)] }
+      }
+    }
+  }
+
+  // Check for casual small talk
+  for (const pattern of CASUAL_SMALLTALK_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'casual_smalltalk', reply: CASUAL_SMALLTALK_REPLIES[Math.floor(Math.random() * CASUAL_SMALLTALK_REPLIES.length)] }
+    }
+  }
+
+  // Check for casual interest/engagement
+  for (const pattern of CASUAL_INTEREST_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'casual_interest', reply: CASUAL_INTEREST_REPLIES[Math.floor(Math.random() * CASUAL_INTEREST_REPLIES.length)] }
+    }
+  }
+
+  // Check for casual boredom
+  for (const pattern of CASUAL_BOREDOM_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'casual_boredom', reply: CASUAL_BOREDOM_REPLIES[Math.floor(Math.random() * CASUAL_BOREDOM_REPLIES.length)] }
+    }
+  }
+
+  // Check for casual busy
+  for (const pattern of CASUAL_BUSY_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'casual_busy', reply: CASUAL_BUSY_REPLIES[Math.floor(Math.random() * CASUAL_BUSY_REPLIES.length)] }
+    }
+  }
+
+  // Check for casual agreement variations
+  for (const pattern of CASUAL_AGREEMENT_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { type: 'casual_agreement', reply: CASUAL_AGREEMENT_REPLIES[Math.floor(Math.random() * CASUAL_AGREEMENT_REPLIES.length)] }
+    }
+  }
+
+  // Check for acknowledgments (only if message is short and matches exactly)
+  if (normalized.length < 30) {
+    for (const pattern of ACKNOWLEDGMENT_PATTERNS) {
+      if (pattern.test(normalized)) {
+        return { type: 'acknowledgment', reply: ACKNOWLEDGMENT_REPLIES[Math.floor(Math.random() * ACKNOWLEDGMENT_REPLIES.length)] }
+      }
+    }
+  }
+
+  // Check other greeting patterns (last, as it's more general)
   for (const pattern of GREETING_PATTERNS) {
     if (pattern.test(normalized)) {
       return { type: 'greeting', reply: GREETING_REPLIES[Math.floor(Math.random() * GREETING_REPLIES.length)] }
@@ -364,11 +1134,11 @@ async function startBot () {
 
     logger.info({ sender, text }, 'Incoming message')
 
-    // Auto-reply to greetings in direct chats (not groups, not commands)
+    // Auto-reply to various contexts in direct chats (not groups, not commands)
     if (!isGroupJid(sender) && !isCommand && text) {
-      const greeting = detectGreeting(text)
-      if (greeting) {
-        await sock.sendMessage(sender, { text: greeting.reply })
+      const autoReply = detectAutoReply(text)
+      if (autoReply) {
+        await sock.sendMessage(sender, { text: autoReply.reply })
         return
       }
     }
@@ -449,7 +1219,41 @@ async function startBot () {
 
 *Automatic Features:*
 • Auto-views all status updates 👀
-• Auto-replies to greetings (Hi, Hello, Howfar, etc.) in direct chats 💬`
+• Auto-replies in direct chats:
+  - Greetings (Hi, Hello, Howfar, Good morning, etc.) 👋
+  - What's up (Sup, Wassup, What's going on, etc.) 💬
+  - Casual check-ins (How's it going?, What's new?, etc.) 💭
+  - Casual reactions (Lol, Haha, Lmao, etc.) 😂
+  - Casual slang (Bet, Fr, Ngl, Tbh, etc.) 🔥
+  - Casual expressions (Oh ok, Ah, Hmm, etc.) 🤷
+  - Casual compliments (Nice, Sweet, Cool, Dope, Fire, etc.) 🔥
+  - Casual small talk (Nice weather, Having a good day, etc.) ☀️
+  - Casual interest (Tell me more, Go on, etc.) 👂
+  - Casual boredom (Bored, Nothing to do, etc.) 😴
+  - Casual busy (Busy, Swamped, Hectic, etc.) 💼
+  - Casual agreement (Yep, Yup, Same, Me too, etc.) 👍
+  - Casual activity (Whatcha doing?, What are you up to?, etc.) 🎯
+  - Presence checks (Are you there?, You online?, etc.) 📍
+  - Thank you messages (Thanks, Thank you, etc.) 🙏
+  - Goodbyes (Bye, See you, Good night, etc.) 👋
+  - Help requests (Help, Need help, etc.) 🆘
+  - Time inquiries (What time?, When?, etc.) 🕐
+  - Contact inquiries (Phone, Email, Location, etc.) 📞
+  - Identity questions (Who are you?, What's your name?, etc.) 🤖
+  - Business inquiries (Price, Services, etc.) 💼
+  - Compliments (Good job, Awesome, etc.) 😊
+  - Congratulations (Congrats, Well done, etc.) 🎉
+  - Excitement (Yay, Awesome, Wow, etc.) 🚀
+  - Apologies (Sorry, My bad, etc.) 😅
+  - Confusion (What?, Huh?, Explain, etc.) 🤔
+  - Agreement/Disagreement (Exactly, I agree, etc.) 👍
+  - Surprise (Really?, No way!, etc.) 😲
+  - Encouragement (You got this, Keep going, etc.) 💪
+  - Frustration (Ugh, Annoyed, etc.) 😤
+  - Relief (Finally, Phew, etc.) 😌
+  - Permission requests (Can I?, May I?, etc.) ✅
+  - Questions (What, When, How, etc.) ❓
+  - Acknowledgments (Ok, Sure, Cool, etc.) 👍`
       await sock.sendMessage(sender, { text: helpText })
       return
     }
